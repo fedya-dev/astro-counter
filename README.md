@@ -13,7 +13,9 @@
 ### Статистика за конкретен сайт
 ![Site stats](docs/site-stats.png)
 
-## ✨ Возможности
+---
+
+## ✨ Възможности
 
 - 🔒 **PIN-защитен dashboard** — само ти виждаш статистиките (HttpOnly cookie + 7-дневна сесия)
 - 🌐 **Множество сайтове** — регистрирай неограничен брой сайтове, за всеки отделна статистика
@@ -27,35 +29,86 @@
 
 ---
 
-## 🚀 Бърз старт (Docker)
+## 🚀 Бърз старт
 
 ### Изисквания
 
 - Docker 20+ и Docker Compose v2
 - Порт 3000 свободен (или промени в `docker-compose.yml`)
 
-### Стъпки
+### Стъпка 1 — Клонирай репото
 
 ```bash
-# 1. Разархивирай кода
-tar xzf astro-counter.tar.gz
+git clone git@github.com:fedya-dev/astro-counter.git
 cd astro-counter
+```
 
-# 2. Смени PIN-а! (ВАЖНО — не го оставяй 1234)
+> Ако нямаш SSH ключове, ползвай HTTPS:
+> ```bash
+> git clone https://github.com/fedya-dev/astro-counter.git
+> cd astro-counter
+> ```
+
+### Стъпка 2 — Смени PIN-а! (ВАЖНО)
+
+Не го оставяй `1234` — всеки, който знае това число, ще може да види статистиките ти.
+
+```bash
 nano docker-compose.yml
-# Намери реда и го сменени:
-#   ADMIN_PIN: "1234"  →  ADMIN_PIN: "твоя-таен-PIN"
+```
 
-# 3. Билдни и пусни
+Намери реда и го смени:
+```yaml
+ADMIN_PIN: "1234"      # ← смени това
+# на:
+ADMIN_PIN: "твоя-таен-PIN-тук"
+```
+
+Запаметете (Ctrl+O, Enter) и излезте (Ctrl+X).
+
+### Стъпка 3 — Билдни и пусни
+
+```bash
 docker compose up -d --build
+```
 
-# 4. Изчакай 1-2 минути (първоначален билд)
+Първоначалният билд отнема 1-2 минути.
+
+### Стъпка 4 — Провери че тръгна
+
+```bash
 docker compose logs -f astro
-# Ctrl+C за изход
+# Ctrl+C за изход от лога (контейнерът продължава да работи)
+```
 
-# 5. Отвори в браузъра:
-#    http://ТВОЯ-СЪРВЪР-IP:3000
-# 6. Кликни "Отключи детайлите" → въведи PIN → готово!
+Трябва да видиш:
+```
+[entrypoint] Applying Prisma schema to database...
+✓ Ready in 87ms
+```
+
+### Стъпка 5 — Отвори в браузъра
+
+```
+http://ТВОЯ-СЪРВЪР-IP:3000
+```
+
+- Кликни **"Отключи детайлите"**
+- Въведи PIN-а (този който си сложил в стъпка 2)
+- Виждаш dashboard-а с празни статистики
+
+### Стъпка 6 — Провери версията (за debug)
+
+```bash
+curl http://ТВОЯ-СЪРВЪР-IP:3000/api/version
+# Трябва да върне: {"ok":true,"version":"v1.0.6",...}
+```
+
+Ако не виждаш `v1.0.6` — ребилдни без кеш:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 ```
 
 ---
@@ -129,7 +182,8 @@ docker compose logs -f astro
 2. Subdomain: `astro`, Domain: `твоя-домейн.com`
 3. Service: `http://localhost:3000` (или `http://сървър-LAN-IP:3000`)
 4. **Path полето ОСТАВИ ПРАЗНО** (важно!)
-5. Клик **"Add route"** — DNS-ът и сертификатът се създават автоматично
+5. Service URL: без trailing slash накрая (напр. `http://10.0.0.5:3000`, не `http://10.0.0.5:3000/`)
+6. Клик **"Add route"** — DNS-ът и сертификатът се създават автоматично
 
 ### Опция B: Caddy (Let's Encrypt автоматично)
 
@@ -153,36 +207,38 @@ systemctl restart caddy
 
 ## 🐛 Трабълшутинг
 
-### "Отключих с PIN, но страницата не сменя"
+### "Въвеждам PIN, изписва 'Достъп разрешен', но страницата не сменя"
 
-**Причина:** Cookie-то има `Secure` флаг, но достъпваш през HTTP.
-
-**Решение 1:** Сложи dashboard-а зад HTTPS (виж горе).
-
-**Решение 2 (за локално тестване):** Достъпи през `http://localhost:3000` от самия сървър.
+**Причина 1:** Cookie-то има `Secure` флаг, но достъпваш през HTTP.
 
 **Диагностика:**
 ```bash
-# Провери версията (трябва да е v1.0.6+)
+# 1. Провери версията (трябва да е v1.0.6+)
 curl http://твоя-сървър:3000/api/version
 
-# Тествай cookie-то с curl
+# 2. Тествай cookie-то с curl
 curl -v -X POST http://твоя-сървър:3000/api/auth \
   -H "Content-Type: application/json" \
   -d '{"pin":"ТВОЯ-PIN"}' \
   -c /tmp/cookies.txt 2>&1 | grep -iE "set-cookie|http/"
-# Ако видиш "Secure" в Set-Cookie header-а при HTTP request → имаш стар код, ребилдни
+```
 
-# Опитай статистиката с cookie
-curl http://твоя-сървър:3000/api/stats -b /tmp/cookies.txt
-# Трябва да върне {"ok":true,"stats":{...}}
+Ако видиш `Secure` в Set-Cookie header-а при HTTP request → имаш стар код, ребилдни:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+**Причина 2:** Влизаш с грешен PIN. Провери какъв е реалният PIN в контейнера:
+```bash
+docker compose exec astro printenv ADMIN_PIN
 ```
 
 ### "Влизам с верен PIN, но връща 401"
 
-**Причина:** PIN-ът в `docker-compose.yml` не съвпада с този, който въвеждаш.
+PIN-ът в `docker-compose.yml` не съвпада с този, който въвеждаш.
 
-**Решение:**
 ```bash
 # Виж какъв е реалният PIN в контейнера
 docker compose exec astro printenv ADMIN_PIN
@@ -196,9 +252,8 @@ docker compose exec astro printenv ADMIN_PIN
 
 ### "Нова версия на кода не се обновява"
 
-**Причина:** Docker е кеширал стар image.
+Docker е кеширал стар image.
 
-**Решение:**
 ```bash
 docker compose down
 docker compose build --no-cache
@@ -210,7 +265,7 @@ docker compose up -d
 **Причина:** Имаш trailing slash в Service URL или path в Path полето.
 
 **Решение:**
-- Service URL: `http://10.110.110.51:3000` (БЕЗ `/` накрая)
+- Service URL: `http://10.0.0.5:3000` (БЕЗ `/` накрая)
 - Path: остави празно
 
 ### "Caddy: DNS problem: NXDOMAIN"
@@ -246,36 +301,12 @@ docker compose up -d
 
 ## 🔄 Обновяване на кода
 
-### Ако ползваш GitHub
+След като си клонирал репото, за да вземеш нови промени:
 
 ```bash
 cd astro-counter
 git pull
 docker compose up -d --build
-```
-
-### Ако ползваш архиви
-
-1. Свали новия архив от release-а
-2. Разархивирай (замества стария код)
-3. `docker compose down && docker compose up -d --build`
-
----
-
-## 📦 Инсталация от GitHub (за друг сървър)
-
-```bash
-git clone https://github.com/ТВОЯ-USER/astro-counter.git
-cd astro-counter
-
-# Смени PIN-а!
-nano docker-compose.yml
-
-# Билдни и пусни
-docker compose up -d --build
-
-# Изчакай 1-2 минути
-docker compose logs -f astro
 ```
 
 ---
@@ -314,13 +345,14 @@ astro-counter/
 │   │   └── ui/                 # shadcn/ui компоненти
 │   └── lib/
 │       ├── db.ts               # Prisma client singleton (с invalidate при schema промяна)
-#       ├── visitor-utils.ts    # getVisitorHash, isHttpsRequest, buildTrackingSnippet, etc.
-#       └── version.ts           # APP_VERSION
-├── Dockerfile                  # Multi-stage build (deps → build → runtime)
-├── docker-compose.yml          # One-command deploy
-├── docker-entrypoint.sh        # Auto prisma db push + node server.js
+│       ├── visitor-utils.ts    # getVisitorHash, isHttpsRequest, buildTrackingSnippet, etc.
+│       └── version.ts          # APP_VERSION
+├── docs/                      # Скрийншоти за README
+├── Dockerfile                 # Multi-stage build (deps → build → runtime)
+├── docker-compose.yml         # One-command deploy
+├── docker-entrypoint.sh       # Auto prisma db push + node server.js
 ├── .dockerignore
-└── .env.docker.example         # Документация на env vars
+└── .env.docker.example        # Документация на env vars
 ```
 
 ---
