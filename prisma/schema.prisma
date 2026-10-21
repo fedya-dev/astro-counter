@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A registered site whose visits we are tracking.
+// Each site gets a public `siteId` (used in the tracking snippet) and
+// a private `apiKey` (used by the snippet to authenticate the POST).
+// The apiKey is rotated by the owner only.
+model Site {
+  id        String   @id @default(cuid())
+  // Human-readable label (e.g. "Train Brakes")
+  name      String
+  // Public site identifier exposed in the tracking snippet — short and URL-safe.
+  slug      String   @unique
+  // Domain for display + CORS referrer sanity check (e.g. "trainbrakes.com")
+  domain    String?
+  // Secret key embedded in the tracking snippet. Anyone with the key can POST
+  // visits to this site — but cannot read the private stats (those need the PIN).
+  apiKey    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visits    Visit[]
+}
+
+// A single tracked visit. We store the IP + user-agent hash so we can
+// deduplicate visits per day (one visitor = one count per day per site).
+model Visit {
+  id          String   @id @default(cuid())
+  // SHA-256 hash of ip + user-agent — used to deduplicate per day
+  visitorHash String
+  // Calendar date (server local) in YYYY-MM-DD format — precomputed for cheap grouping
+  date        String
+  // Site this visit belongs to (nullable for legacy rows seeded before Sites feature)
+  siteId      String?
+  site        Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  ip          String?
+  userAgent   String?
+  // ISO country code if available from CF-IPCountry / X-Geo-Country headers
+  country     String?
+  // Referrer from the visitor's browser — useful for seeing where traffic comes from
+  referrer    String?
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([siteId, date])
+  @@index([visitorHash, siteId, date])
+}
