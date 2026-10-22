@@ -13,5 +13,5 @@
  *   docker compose build --no-cache
  *   docker compose up -d
  */
-export const APP_VERSION = "v1.0.6";
+export const APP_VERSION = "v1.0.7";
 

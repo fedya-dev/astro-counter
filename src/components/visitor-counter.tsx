@@ -18,9 +18,10 @@ import {
   ExternalLink,
   Link as LinkIcon,
   ChevronDown,
+  Github,
 } from "lucide-react";
 
-// Version banner — if you don't see "v1.0.6" in the locked screen footer,
+// Version banner — if you don't see "v1.0.7" in the locked screen footer,
 // your Docker container is still running old code. Rebuild with:
 //   docker compose down && docker compose build --no-cache && docker compose up -d
 // You can also verify with:  curl http://your-server:3000/api/version
@@ -766,20 +767,54 @@ function Dashboard({
   const weekTotal = stats?.weekTotal ?? null;
   const trend = stats?.trendPct;
 
+  // Build a clearer trend label that handles edge cases gracefully:
+  //   - yesterday=0 and today>0   → "✨ Първи посещения днес" (not misleading "▲ 100%")
+  //   - today=0 and yesterday>0  → "— Все още 0 днес" (waiting for today's traffic)
+  //   - today=yesterday           → "≈ Също като вчера"
+  //   - both 0                    → no label (no data)
+  //   - otherwise                 → "▲/▼ N% спря вчера (брой)"
   let trendLabel: React.ReactNode = null;
-  if (trend !== null && trend !== undefined) {
-    const isUp = trend >= 0;
-    trendLabel = (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-          isUp
-            ? "bg-emerald-500/15 text-emerald-300"
-            : "bg-rose-500/15 text-rose-300"
-        }`}
-      >
-        {isUp ? "▲" : "▼"} {Math.abs(trend)}% спря вчера
-      </span>
-    );
+  if (today !== null && yesterday !== null) {
+    if (today === 0 && yesterday === 0) {
+      trendLabel = (
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-xs text-violet-200/50">
+          Все още няма посещения
+        </span>
+      );
+    } else if (yesterday === 0 && today > 0) {
+      trendLabel = (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+          ✨ Първи посещения днес
+        </span>
+      );
+    } else if (today === 0 && yesterday > 0) {
+      trendLabel = (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+          — Все още 0 днес
+        </span>
+      );
+    } else if (today === yesterday) {
+      trendLabel = (
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-violet-100">
+          ≈ Също като вчера
+        </span>
+      );
+    } else if (trend !== null && trend !== undefined) {
+      const isUp = trend >= 0;
+      const pct = Math.abs(trend);
+      trendLabel = (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+            isUp
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-rose-500/15 text-rose-300"
+          }`}
+          title={`Вчера: ${yesterday} · Днес: ${today}`}
+        >
+          {isUp ? "▲" : "▼"} {pct}% спря вчера (беше {yesterday})
+        </span>
+      );
+    }
   }
 
   return (
@@ -812,6 +847,16 @@ function Dashboard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="https://github.com/fedya-dev/astro-counter"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="GitHub repository"
+            aria-label="GitHub repository"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-violet-400/20 bg-white/5 text-violet-100 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Github className="h-4 w-4" />
+          </a>
           <Button
             variant="outline"
             size="sm"

@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         _count: { _all: true },
         where: { ...where, date: { in: last7 } },
         orderBy: { _count: { country: "desc" } },
-        take: 5,
+        take: 10,
       }),
       db.visit.groupBy({
         by: ["referrer"],
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
           referrer: { not: null },
         },
         orderBy: { _count: { referrer: "desc" } },
-        take: 5,
+        take: 10,
       }),
     ]);
 

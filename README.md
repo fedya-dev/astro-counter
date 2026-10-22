@@ -142,12 +142,39 @@ docker compose up -d
 
 | Платформа | Къде да сложиш snippet-а |
 |-----------|--------------------------|
-| **Astro** | `src/layouts/Layout.astro` преди `</body>` (ползвай `<script is:inline>`) |
+| **Astro** | `src/layouts/Layout.astro` преди `</body>` — **ползвай `<script is:inline>`**, иначе Astro ще минифицира/промени кода и ще счупи tracking-а |
 | **WordPress** | Appearance → Theme Editor → `footer.php` преди `</body>` (или плъгин "Insert Headers and Footers") |
 | **Чист HTML** | Във всеки `.html` файл, преди `</body>` |
 | **Next.js** | В root layout `app/layout.tsx` или `pages/_app.tsx` |
 | **Shopify** | Online Store → Themes → Edit code → `theme.liquid` преди `</body>` |
 | **Wix** | Settings → Custom Code → + New Custom Code → "Body - end" |
+
+### ⚠️ Специално за Astro (важно!)
+
+Astro по подразбиране processing-ва `<script>` таговете — bundl-ва ги, минифицира ги, понякога ги премахва. Това ще счупи tracking snippet-а.
+
+Затова **винаги** добавяй `is:inline` директива:
+
+```astro
+---
+// твоят frontmatter
+---
+
+<!DOCTYPE html>
+<html lang="bg">
+  <head>...</head>
+  <body>
+    <slot />
+    
+    <!-- ВАЖНО: is:inline казва на Astro да НЕ пипа този script -->
+    <script is:inline>
+      // ...кодът от dashboard-а тук...
+    </script>
+  </body>
+</html>
+```
+
+Без `is:inline` — snippet-ът **няма** да работи след билд.
 
 ---
 
