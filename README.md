@@ -328,12 +328,78 @@ docker compose up -d
 
 ## 🔄 Обновяване на кода
 
-След като си клонирал репото, за да вземеш нови промени:
+Имаш два варианта зависимо как е инсталирано на сървъра.
+
+### Вариант A — Бърз ъпдейт (ако вече имаш `git clone` на сървъра)
 
 ```bash
 cd astro-counter
 git pull
 docker compose up -d --build
+```
+
+Ако Docker не е компилирал новия код (виж стара версия в `/api/version`), ребилдни без кеш:
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Вариант B — Чист ресет (ако имаш стар архив-based install и искаш да минеш на GitHub)
+
+За напълно прясно начало — изтрий старата инсталация и клонирай repo-то от GitHub. **Данните остават!** — те са в Docker volume, не в папката.
+
+```bash
+# 1. Влез на сървъра
+ssh root@10.110.110.51
+
+# 2. Отиди в старата папка (където ти е стария архив)
+cd /root/dockeri
+ls astro-counter   # старата инсталация
+
+# 3. Спри стария контейнер
+cd astro-counter
+docker compose down
+
+# 4. Излез и изтрий старата папка (ДАННИТЕ ОСТАВАТ — те са в Docker volume)
+cd /root/dockeri
+rm -rf astro-counter
+
+# 5. Клонирай новото repo от GitHub
+git clone https://github.com/fedya-dev/astro-counter.git
+# (или с SSH: git clone git@github.com:fedya-dev/astro-counter.git)
+cd astro-counter
+
+# 6. Смени PIN-а! (ако не е вече сменен в GitHub — но НЕ го казвай в публично repo!)
+# Ако си оставил ADMIN_PIN: "1234" в git, смени го локално тук:
+nano docker-compose.yml
+# (В бъдеще ползвай .env файл или git-ignored override)
+
+# 7. Билдни и пусни
+docker compose up -d --build
+
+# 8. Изчакай 1-2 минути
+docker compose logs -f astro
+
+# 9. Провери версията
+curl http://10.110.110.51:3000/api/version
+```
+
+### Верификация след ъпдейта
+
+```bash
+# 1. Версията е най-новата (провери с curl)
+curl http://твоя-сървър:3000/api/version
+
+# 2. Браузър hard refresh (за да зареди новия JS bundle):
+#    Ctrl + Shift + R   (или Cmd + Shift + R на Mac)
+#    Или отвори в Incognito/Private таб
+
+# 3. В dashboard-а виж дали новите features са активни:
+#    - Иконката в tab-а трябва да е лилава звезда (не Z.ai лого)
+#    - Горе-дясно в dashboard-а има GitHub иконка
+#    - Trend label-а казва "▼ N% спря вчера (беше X)" с предишното число
 ```
 
 ---
@@ -411,4 +477,4 @@ astro-counter/
 
 ---
 
-**Версия:** v1.0.6 · Изграден на 2026-10-21
+**Версия:** v1.0.7 · Изграден на 2026-10-22
