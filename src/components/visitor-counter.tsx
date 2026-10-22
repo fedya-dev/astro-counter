@@ -20,11 +20,6 @@ import {
   ChevronDown,
   Github,
 } from "lucide-react";
-
-// Version banner — if you don't see "v1.0.7" in the locked screen footer,
-// your Docker container is still running old code. Rebuild with:
-//   docker compose down && docker compose build --no-cache && docker compose up -d
-// You can also verify with:  curl http://your-server:3000/api/version
 import { APP_VERSION } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,15 +37,12 @@ import {
   CartesianGrid,
 } from "recharts";
 
-/* ------------------------------------------------------------------ */
-/* Types                                                              */
-/* ------------------------------------------------------------------ */
-
 type PublicCount = { today: number; total: number };
 
 type Stats = {
   site: string | null;
   siteSlug: string | null;
+  siteColor: string | null;
   today: number;
   yesterday: number;
   total: number;
@@ -67,16 +59,44 @@ type Site = {
   slug: string;
   domain: string | null;
   apiKey: string;
+  color: string | null;
   createdAt: string;
   totalVisits: number;
   today: number;
   yesterday: number;
 };
 
-/* ------------------------------------------------------------------ */
-/* Starfield background — pure CSS, no external assets                */
-/* ------------------------------------------------------------------ */
+const FALLBACK_PALETTE = [
+  "#a855f7",
+  "#f59e0b",
+  "#22d3ee",
+  "#10b981",
+  "#ec4899",
+  "#ef4444",
+  "#8b5cf6",
+  "#f97316",
+  "#06b6d4",
+  "#84cc16",
+  "#eab308",
+  "#14b8a6",
+];
 
+/* ----- convert hex to rgba with alpha ----- */
+function hexA(hex: string, alpha: number): string {
+  try {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } catch {
+    return `rgba(168, 85, 247, ${alpha})`;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Starfield                                                          */
+/* ------------------------------------------------------------------ */
 function Starfield() {
   const stars = useMemo(
     () =>
@@ -90,7 +110,6 @@ function Starfield() {
       })),
     []
   );
-
   return (
     <div
       aria-hidden
@@ -144,7 +163,6 @@ function Starfield() {
 /* ------------------------------------------------------------------ */
 /* Locked screen                                                      */
 /* ------------------------------------------------------------------ */
-
 function LockedScreen({
   publicCount,
   loading,
@@ -177,7 +195,6 @@ function LockedScreen({
         >
           <Star className="h-10 w-10 text-white" strokeWidth={2} />
         </motion.div>
-
         <div className="space-y-2">
           <h1 className="text-5xl font-bold tracking-tight text-white sm:text-6xl">
             Астро
@@ -186,14 +203,12 @@ function LockedScreen({
             Личен брояч за посещения — множество сайтове
           </p>
         </div>
-
         <div className="flex items-center gap-2 text-violet-300/60">
           <Sparkles className="h-4 w-4" />
           <span className="text-sm">
             Следи посещенията на всичките си сайтове от едно място
           </span>
         </div>
-
         <div className="mt-2 flex items-center gap-2 rounded-full border border-violet-400/20 bg-white/5 px-4 py-2 backdrop-blur-md">
           <EyeOff className="h-3.5 w-3.5 text-violet-300/60" />
           {loading || !publicCount ? (
@@ -211,7 +226,6 @@ function LockedScreen({
             </span>
           )}
         </div>
-
         <Button
           onClick={onUnlockClick}
           size="lg"
@@ -237,7 +251,6 @@ function LockedScreen({
 /* ------------------------------------------------------------------ */
 /* PIN entry modal                                                    */
 /* ------------------------------------------------------------------ */
-
 function PinEntry({
   open,
   onClose,
@@ -270,7 +283,10 @@ function PinEntry({
           setPin("");
           return;
         }
-        toast({ title: "Достъп разрешен", description: "Детайлите са отключени." });
+        toast({
+          title: "Достъп разрешен",
+          description: "Детайлите са отключени.",
+        });
         onSuccess();
       } catch {
         setError("Връзката прекъсна. Опитайте отново.");
@@ -361,7 +377,6 @@ function PinEntry({
 /* ------------------------------------------------------------------ */
 /* Stat card                                                          */
 /* ------------------------------------------------------------------ */
-
 function StatCard({
   label,
   value,
@@ -413,21 +428,21 @@ function StatCard({
 }
 
 /* ------------------------------------------------------------------ */
-/* Copy-to-clipboard helper + button                                  */
+/* Copy button                                                        */
 /* ------------------------------------------------------------------ */
-
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast({ title: "Копирано", description: label || "Кодът е в клипборда." });
+      toast({
+        title: "Копирано",
+        description: label || "Кодът е в клипборда.",
+      });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for old browsers
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -437,12 +452,15 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch {
-        toast({ title: "Грешка", description: "Копирането не беше успешно.", variant: "destructive" });
+        toast({
+          title: "Грешка",
+          description: "Копирането не беше успешно.",
+          variant: "destructive",
+        });
       }
       document.body.removeChild(ta);
     }
   };
-
   return (
     <Button
       type="button"
@@ -458,35 +476,90 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Site manager modal — list/add/regen/delete sites                  */
+/* Color picker                                                       */
 /* ------------------------------------------------------------------ */
+function ColorPicker({
+  value,
+  onChange,
+  palette,
+}: {
+  value: string | null;
+  onChange: (color: string) => void;
+  palette: string[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {palette.map((c) => {
+        const selected = (value || "").toLowerCase() === c.toLowerCase();
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChange(c)}
+            title={c}
+            className={`relative h-7 w-7 rounded-full transition-transform ${
+              selected
+                ? "ring-2 ring-white ring-offset-2 ring-offset-[#0d0820] scale-110"
+                : "hover:scale-110"
+            }`}
+            style={{ background: c }}
+          >
+            {selected && (
+              <Check className="absolute inset-0 m-auto h-3.5 w-3.5 text-white drop-shadow" />
+            )}
+          </button>
+        );
+      })}
+      <label
+        className="relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-dashed border-violet-400/40 text-violet-200/60 hover:border-violet-400/70 hover:text-white"
+        title="Custom цвят"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <input
+          type="color"
+          value={value || "#a855f7"}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
+    </div>
+  );
+}
 
+/* ------------------------------------------------------------------ */
+/* Site manager modal                                                 */
+/* ------------------------------------------------------------------ */
 function SiteManagerModal({
   open,
   onClose,
   sites,
+  palette,
   loading,
   onAdd,
+  onUpdate,
   onDelete,
   onRegenerateKey,
 }: {
   open: boolean;
   onClose: () => void;
   sites: Site[];
+  palette: string[];
   loading: boolean;
-  onAdd: (name: string, domain: string) => Promise<void>;
+  onAdd: (name: string, domain: string, color: string | null) => Promise<void>;
+  onUpdate: (site: Site, patch: { name?: string; domain?: string | null; color?: string | null }) => Promise<void>;
   onDelete: (site: Site) => Promise<void>;
   onRegenerateKey: (site: Site) => Promise<void>;
 }) {
   const [newName, setNewName] = useState("");
   const [newDomain, setNewDomain] = useState("");
+  const [newColor, setNewColor] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [expandedSiteId, setExpandedSiteId] = useState<string | null>(null);
   const [snippets, setSnippets] = useState<Record<string, string>>({});
   const [snippetLoading, setSnippetLoading] = useState<string | null>(null);
+  const [editingColorFor, setEditingColorFor] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Load snippet for a site when expanded
   const loadSnippet = useCallback(async (site: Site) => {
     if (snippets[site.id]) return;
     setSnippetLoading(site.id);
@@ -515,9 +588,10 @@ function SiteManagerModal({
     if (!newName.trim()) return;
     setAdding(true);
     try {
-      await onAdd(newName.trim(), newDomain.trim());
+      await onAdd(newName.trim(), newDomain.trim(), newColor);
       setNewName("");
       setNewDomain("");
+      setNewColor(null);
     } finally {
       setAdding(false);
     }
@@ -540,7 +614,7 @@ function SiteManagerModal({
             <div>
               <h3 className="text-lg font-semibold text-white">Сайтове</h3>
               <p className="text-xs text-violet-200/60">
-                Регистрирай сайтове и вгради кода им за броене
+                Регистрирай сайтове, избери цвят и вгради кода им
               </p>
             </div>
           </div>
@@ -554,7 +628,6 @@ function SiteManagerModal({
           </Button>
         </div>
 
-        {/* Add new site form */}
         <form
           onSubmit={handleAdd}
           className="mb-5 rounded-lg border border-violet-400/20 bg-white/[0.02] p-3"
@@ -575,11 +648,19 @@ function SiteManagerModal({
               className="border-violet-400/30 bg-white/5 text-white placeholder:text-violet-200/30"
             />
           </div>
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-violet-200/60">Цвят:</span>
+              <ColorPicker
+                value={newColor}
+                onChange={setNewColor}
+                palette={palette}
+              />
+            </div>
             <Button
               type="submit"
               disabled={adding || !newName.trim()}
-              className="gap-2 bg-violet-500/30 text-white hover:bg-violet-500/50"
+              className="ml-auto gap-2 bg-violet-500/30 text-white hover:bg-violet-500/50"
             >
               <Plus className="h-4 w-4" />
               {adding ? "Добавяне…" : "Добави сайт"}
@@ -587,7 +668,6 @@ function SiteManagerModal({
           </div>
         </form>
 
-        {/* Site list */}
         {loading ? (
           <div className="space-y-2">
             {[0, 1].map((i) => (
@@ -600,133 +680,178 @@ function SiteManagerModal({
             <p className="text-sm text-violet-200/50">
               Все още няма регистрирани сайтове.
             </p>
-            <p className="mt-1 text-xs text-violet-200/40">
-              Добави първия с формата горе.
-            </p>
           </div>
         ) : (
           <ul className="space-y-2">
-            {sites.map((s) => (
-              <li
-                key={s.id}
-                className="rounded-lg border border-violet-400/20 bg-white/[0.02] p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <LinkIcon className="h-4 w-4 shrink-0 text-violet-300/60" />
-                      <p className="truncate font-medium text-white">
-                        {s.name}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className="border-violet-400/30 bg-violet-500/10 text-[10px] text-violet-200"
-                      >
-                        {s.slug}
-                      </Badge>
+            {sites.map((s) => {
+              const color = s.color || palette[0] || "#a855f7";
+              return (
+                <li
+                  key={s.id}
+                  className="rounded-lg border border-white/10 bg-white/[0.02] p-3"
+                  style={{ boxShadow: `inset 3px 0 0 ${color}` }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 shrink-0 rounded-full"
+                          style={{ background: color }}
+                        />
+                        <p className="truncate font-medium text-white">{s.name}</p>
+                        <Badge
+                          variant="outline"
+                          className="border-violet-400/30 bg-violet-500/10 text-[10px] text-violet-200"
+                        >
+                          {s.slug}
+                        </Badge>
+                      </div>
+                      {s.domain && (
+                        <a
+                          href={`https://${s.domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-xs text-violet-200/50 hover:text-violet-100"
+                        >
+                          {s.domain}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </div>
-                    {s.domain && (
-                      <a
-                        href={`https://${s.domain}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-xs text-violet-200/50 hover:text-violet-100"
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setEditingColorFor((cur) =>
+                            cur === s.id ? null : s.id
+                          )
+                        }
+                        title="Смяна на цвят"
+                        className="text-violet-200/70 hover:bg-white/5 hover:text-white"
                       >
-                        {s.domain}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setExpandedSiteId((cur) => (cur === s.id ? null : s.id))
-                      }
-                      className="gap-1 text-violet-200/70 hover:bg-white/5 hover:text-white"
-                    >
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 transition-transform ${
-                          expandedSiteId === s.id ? "rotate-180" : ""
-                        }`}
-                      />
-                      Код
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRegenerateKey(s)}
-                      title="Генерирай нов API ключ"
-                      className="text-violet-200/70 hover:bg-white/5 hover:text-white"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(s)}
-                      title="Изтрий сайта и всички негови посещения"
-                      className="text-rose-300/70 hover:bg-rose-500/10 hover:text-rose-200"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Inline stats for the site */}
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-violet-200/70">
-                  <span className="rounded-full bg-white/5 px-2 py-0.5">
-                    Днес: <span className="font-semibold text-white">{s.today}</span>
-                  </span>
-                  <span className="rounded-full bg-white/5 px-2 py-0.5">
-                    Вчера: <span className="font-semibold text-white">{s.yesterday}</span>
-                  </span>
-                  <span className="rounded-full bg-white/5 px-2 py-0.5">
-                    Общо: <span className="font-semibold text-white">{s.totalVisits}</span>
-                  </span>
-                </div>
-
-                {/* Snippet (expanded) */}
-                {expandedSiteId === s.id && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    className="mt-3 overflow-hidden"
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs text-violet-200/60">
-                        Постави този код в HTML-а на сайта си (преди затварящия{" "}
-                        <code className="rounded bg-white/10 px-1 text-[10px]">
-                          {"</body>"}
-                        </code>
-                        ):
-                      </p>
-                      {snippets[s.id] && <CopyButton text={snippets[s.id]} />}
+                        <span
+                          className="h-3.5 w-3.5 rounded-full"
+                          style={{ background: color }}
+                        />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setExpandedSiteId((cur) =>
+                            cur === s.id ? null : s.id
+                          )
+                        }
+                        className="gap-1 text-violet-200/70 hover:bg-white/5 hover:text-white"
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${
+                            expandedSiteId === s.id ? "rotate-180" : ""
+                          }`}
+                        />
+                        Код
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onRegenerateKey(s)}
+                        title="Генерирай нов API ключ"
+                        className="text-violet-200/70 hover:bg-white/5 hover:text-white"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(s)}
+                        title="Изтрий"
+                        className="text-rose-300/70 hover:bg-rose-500/10 hover:text-rose-200"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    {snippetLoading === s.id && !snippets[s.id] ? (
-                      <Skeleton className="h-32 w-full bg-white/5" />
-                    ) : snippets[s.id] ? (
-                      <pre className="max-h-44 overflow-auto rounded-md border border-violet-400/20 bg-black/40 p-3 text-xs leading-relaxed text-violet-100/90">
-                        {snippets[s.id]}
-                      </pre>
-                    ) : (
-                      <p className="text-xs text-violet-200/40">
-                        Кодът не беше зареден. Опитай пак.
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-              </li>
-            ))}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-violet-200/70">
+                    <span className="rounded-full bg-white/5 px-2 py-0.5">
+                      Днес:{" "}
+                      <span className="font-semibold text-white">{s.today}</span>
+                    </span>
+                    <span className="rounded-full bg-white/5 px-2 py-0.5">
+                      Вчера:{" "}
+                      <span className="font-semibold text-white">
+                        {s.yesterday}
+                      </span>
+                    </span>
+                    <span className="rounded-full bg-white/5 px-2 py-0.5">
+                      Общо:{" "}
+                      <span className="font-semibold text-white">
+                        {s.totalVisits}
+                      </span>
+                    </span>
+                  </div>
+
+                  {editingColorFor === s.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      className="mt-3 overflow-hidden border-t border-white/10 pt-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-violet-200/60">
+                          Цвят на таб:
+                        </span>
+                        <ColorPicker
+                          value={s.color}
+                          onChange={(c) => onUpdate(s, { color: c })}
+                          palette={palette}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {expandedSiteId === s.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      className="mt-3 overflow-hidden"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-xs text-violet-200/60">
+                          Постави този код в HTML-а на сайта си преди{" "}
+                          <code className="rounded bg-white/10 px-1 text-[10px]">
+                            {"</body>"}
+                          </code>
+                          :
+                        </p>
+                        {snippets[s.id] && <CopyButton text={snippets[s.id]} />}
+                      </div>
+                      {snippetLoading === s.id && !snippets[s.id] ? (
+                        <Skeleton className="h-32 w-full bg-white/5" />
+                      ) : snippets[s.id] ? (
+                        <pre className="max-h-44 overflow-auto rounded-md border border-violet-400/20 bg-black/40 p-3 text-xs leading-relaxed text-violet-100/90">
+                          {snippets[s.id]}
+                        </pre>
+                      ) : (
+                        <p className="text-xs text-violet-200/40">
+                          Кодът не беше зареден.
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 
         <p className="mt-4 text-center text-xs text-violet-200/40">
-          Ключът ({`k=...`}) е видимо в кода на сайта — това е нормално. Той само
+          Ключът ({`k=...`}) е видимо в кода на сайта — това е нормално. Само
           записва посещения, не чете статистики. Само ти вижш детайлите с PIN.
         </p>
       </motion.div>
@@ -735,9 +860,8 @@ function SiteManagerModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* Dashboard (the unlocked view)                                      */
+/* Dashboard                                                          */
 /* ------------------------------------------------------------------ */
-
 function Dashboard({
   stats,
   loading,
@@ -766,13 +890,12 @@ function Dashboard({
   const total = stats?.total ?? null;
   const weekTotal = stats?.weekTotal ?? null;
   const trend = stats?.trendPct;
+  const selectedSiteColor =
+    stats?.siteColor ||
+    sites.find((s) => s.slug === selectedSlug)?.color ||
+    "#a855f7";
+  const chartColor = selectedSiteColor;
 
-  // Build a clearer trend label that handles edge cases gracefully:
-  //   - yesterday=0 and today>0   → "✨ Първи посещения днес" (not misleading "▲ 100%")
-  //   - today=0 and yesterday>0  → "— Все още 0 днес" (waiting for today's traffic)
-  //   - today=yesterday           → "≈ Също като вчера"
-  //   - both 0                    → no label (no data)
-  //   - otherwise                 → "▲/▼ N% спря вчера (брой)"
   let trendLabel: React.ReactNode = null;
   if (today !== null && yesterday !== null) {
     if (today === 0 && yesterday === 0) {
@@ -863,7 +986,9 @@ function Dashboard({
             onClick={onRefresh}
             className="gap-2 border-violet-400/20 bg-white/5 text-violet-100 hover:bg-white/10 hover:text-white"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
             Обнови
           </Button>
           <Button
@@ -878,73 +1003,103 @@ function Dashboard({
         </div>
       </div>
 
-      {/* Site selector */}
-      <Card className="mb-5 border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-1 text-xs text-violet-200/60">Сайт:</span>
-          <button
-            onClick={() => onSelectSlug(null)}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              selectedSlug === null
-                ? "border-violet-400/60 bg-violet-500/20 text-white"
-                : "border-violet-400/20 bg-white/5 text-violet-200/70 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            Панел (тази страница)
-          </button>
-          {sitesLoading ? (
-            <Skeleton className="h-7 w-32 bg-white/5" />
-          ) : (
-            sites.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => onSelectSlug(s.slug)}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                  selectedSlug === s.slug
-                    ? "border-violet-400/60 bg-violet-500/20 text-white"
-                    : "border-violet-400/20 bg-white/5 text-violet-200/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {s.name}
-              </button>
-            ))
-          )}
+      {/* Site selector — compact + horizontal scroll for many sites */}
+      <Card className="mb-5 border-white/10 bg-white/[0.03] p-2 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <span className="hidden px-2 text-xs text-violet-200/60 sm:inline">
+            Сайт:
+          </span>
+          <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <button
+              onClick={() => onSelectSlug(null)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
+                selectedSlug === null
+                  ? "border-violet-400/60 bg-violet-500/20 text-white"
+                  : "border-violet-400/20 bg-white/5 text-violet-200/70 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Sparkles className="h-3 w-3" />
+              Панел
+            </button>
+            {sitesLoading ? (
+              <Skeleton className="h-7 w-32 shrink-0 bg-white/5" />
+            ) : (
+              sites.map((s) => {
+                const c = s.color || "#a855f7";
+                const isSelected = selectedSlug === s.slug;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => onSelectSlug(s.slug)}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
+                      isSelected ? "text-white" : "text-violet-200/70 hover:text-white"
+                    }`}
+                    style={
+                      isSelected
+                        ? {
+                            borderColor: c,
+                            background: hexA(c, 0.2),
+                          }
+                        : {
+                            borderColor: `${c}40`,
+                            background: "rgba(255,255,255,0.03)",
+                          }
+                    }
+                    title={s.domain || s.name}
+                  >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: c }}
+                    />
+                    <span className="truncate max-w-[140px]">{s.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={onOpenSiteManager}
-            className="ml-auto gap-1 border-violet-400/30 bg-white/5 px-3 py-1 text-xs text-violet-100 hover:bg-white/10 hover:text-white"
+            className="shrink-0 gap-1 border-violet-400/30 bg-white/5 px-3 py-1 text-xs text-violet-100 hover:bg-white/10 hover:text-white"
           >
             <Plus className="h-3 w-3" />
-            Управление на сайтове
+            <span className="hidden sm:inline">Сайтове</span>
           </Button>
         </div>
       </Card>
 
-      {/* Site name banner if a site is selected */}
+      {/* Site banner */}
       {stats?.site && (
         <div className="mb-4 flex items-center gap-2 text-sm text-violet-100/80">
-          <Globe className="h-4 w-4 text-violet-300/60" />
+          <Globe
+            className="h-4 w-4"
+            style={{ color: selectedSiteColor }}
+          />
           Преглеждаш:{" "}
           <span className="font-semibold text-white">{stats.site}</span>
         </div>
       )}
 
-      {/* Error banner — visible when stats can't be loaded */}
+      {/* Error banner */}
       {error && !loading && (
         <Card className="mb-5 border-rose-400/40 bg-rose-500/10 p-4 backdrop-blur-md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2">
               <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-rose-300" />
               <div>
-                <p className="font-medium text-rose-100">Статистиките не се заредиха</p>
+                <p className="font-medium text-rose-100">
+                  Статистиките не се заредиха
+                </p>
                 <p className="mt-1 text-sm text-rose-200/70">{error}</p>
                 <p className="mt-2 text-xs text-rose-200/50">
                   Ако виждаш това веднага след въвеждане на PIN — cookie-то не
-                  се запазва в браузъра. Най-честата причина е HTTP без HTTPS.
-                  Решения: 1) Сложи dashboard-а зад HTTPS reverse proxy (напр.
-                  Caddy/Nginx с Let&apos;s Encrypt), или 2) Използвай го през{" "}
-                  <code className="mx-1 rounded bg-white/10 px-1">http://localhost:3000</code>{" "}
+                  се запазва. Най-честата причина е HTTP без HTTPS. Сложи
+                  dashboard-а зад HTTPS reverse proxy (Caddy/Nginx/Cloudflare
+                  Tunnel) или го отваряй през{" "}
+                  <code className="mx-1 rounded bg-white/10 px-1">
+                    http://localhost:3000
+                  </code>{" "}
                   от самия сървър.
                 </p>
               </div>
@@ -968,7 +1123,7 @@ function Dashboard({
           label="Днес"
           value={today}
           sub={trendLabel}
-          accent="#a855f7"
+          accent={selectedSiteColor}
           loading={loading}
           icon={Sparkles}
         />
@@ -1022,8 +1177,8 @@ function Dashboard({
               >
                 <defs>
                   <linearGradient id="visitsG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColor} stopOpacity={0.8} />
+                    <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -1048,7 +1203,7 @@ function Dashboard({
                 <Tooltip
                   contentStyle={{
                     background: "rgba(13,8,32,0.95)",
-                    border: "1px solid rgba(168,85,247,0.3)",
+                    border: `1px solid ${chartColor}55`,
                     borderRadius: "8px",
                     color: "#fff",
                   }}
@@ -1060,14 +1215,14 @@ function Dashboard({
                   type="monotone"
                   dataKey="count"
                   name="Посещения"
-                  stroke="#a855f7"
+                  stroke={chartColor}
                   strokeWidth={2}
                   fill="url(#visitsG)"
-                  dot={{ fill: "#a855f7", r: 4, strokeWidth: 0 }}
+                  dot={{ fill: chartColor, r: 4, strokeWidth: 0 }}
                   activeDot={{
                     r: 6,
                     fill: "#fff",
-                    stroke: "#a855f7",
+                    stroke: chartColor,
                     strokeWidth: 2,
                   }}
                 />
@@ -1127,12 +1282,12 @@ function Dashboard({
 /* ------------------------------------------------------------------ */
 /* Main component                                                     */
 /* ------------------------------------------------------------------ */
-
 export function VisitorCounter() {
   const [unlocked, setUnlocked] = useState(false);
   const [publicCount, setPublicCount] = useState<PublicCount | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
+  const [palette, setPalette] = useState<string[]>(FALLBACK_PALETTE);
   const [publicLoading, setPublicLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
   const [sitesLoading, setSitesLoading] = useState(false);
@@ -1143,7 +1298,6 @@ export function VisitorCounter() {
   const trackedRef = useRef(false);
   const { toast } = useToast();
 
-  /* ---------- On mount: check existing session ---------- */
   useEffect(() => {
     (async () => {
       try {
@@ -1161,7 +1315,6 @@ export function VisitorCounter() {
     })();
   }, []);
 
-  /* ---------- Track the visit on mount (only once) ---------- */
   useEffect(() => {
     if (trackedRef.current) return;
     trackedRef.current = true;
@@ -1174,7 +1327,8 @@ export function VisitorCounter() {
         } else {
           const g = await fetch("/api/track");
           const gd = await g.json();
-          if (gd?.ok) setPublicCount({ today: gd.today, total: gd.total });
+          if (gd?.ok)
+            setPublicCount({ today: gd.today, total: gd.total });
         }
       } catch {
         // ignore
@@ -1184,58 +1338,49 @@ export function VisitorCounter() {
     })();
   }, []);
 
-  /* ---------- Load private stats for the selected site ---------- */
-  // NOTE: We intentionally DON'T reset `unlocked` to false on 401 anymore.
-  // The previous behavior caused a death-loop: PIN success → setUnlocked(true)
-  // → useEffect fires → /api/stats → 401 (cookie missing for any reason) →
-  // setUnlocked(false) → page reverted to locked → user saw only the toast.
-  // Now we surface the error visibly in the Dashboard with a retry button.
-  const loadStats = useCallback(
-    async (slug: string | null) => {
-      setStatsLoading(true);
-      setStatsError(null);
-      try {
-        const url = slug
-          ? `/api/stats?site=${encodeURIComponent(slug)}`
-          : "/api/stats";
-        const res = await fetch(url);
-        if (res.status === 401) {
-          // Cookie wasn't sent or wasn't valid. Stay unlocked — let the user
-          // see the dashboard with an error message + retry button.
-          setStatsError(
-            "Сесията не е активна. Вероятно cookie-то не се запазва в браузъра (HTTP без HTTPS)."
-          );
-          return;
-        }
-        if (!res.ok) {
-          setStatsError(`Грешка от сървъра: ${res.status}`);
-          return;
-        }
-        const data = await res.json();
-        if (data?.ok) {
-          setStats(data.stats);
-        } else {
-          setStatsError("Невалиден отговор от сървъра.");
-        }
-      } catch (e) {
+  const loadStats = useCallback(async (slug: string | null) => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const url = slug
+        ? `/api/stats?site=${encodeURIComponent(slug)}`
+        : "/api/stats";
+      const res = await fetch(url);
+      if (res.status === 401) {
         setStatsError(
-          "Мрежова грешка при зареждане на статистики. Провери дали сървърът работи."
+          "Сесията не е активна. Вероятно cookie-то не се запазва (HTTP без HTTPS)."
         );
-      } finally {
-        setStatsLoading(false);
+        return;
       }
-    },
-    []
-  );
+      if (!res.ok) {
+        setStatsError(`Грешка от сървъра: ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      if (data?.ok) {
+        setStats(data.stats);
+      } else {
+        setStatsError("Невалиден отговор от сървъра.");
+      }
+    } catch {
+      setStatsError(
+        "Мрежова грешка при зареждане на статистики. Провери дали сървърът работи."
+      );
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
 
-  /* ---------- Load the list of registered sites ---------- */
   const loadSites = useCallback(async () => {
     setSitesLoading(true);
     try {
       const res = await fetch("/api/sites");
       if (!res.ok) return;
       const data = await res.json();
-      if (data?.ok) setSites(data.sites);
+      if (data?.ok) {
+        setSites(data.sites);
+        if (Array.isArray(data.palette)) setPalette(data.palette);
+      }
     } catch {
       // ignore
     } finally {
@@ -1243,7 +1388,6 @@ export function VisitorCounter() {
     }
   }, []);
 
-  /* ---------- Initial load when unlocked ---------- */
   useEffect(() => {
     if (unlocked) {
       loadStats(selectedSlug);
@@ -1251,15 +1395,11 @@ export function VisitorCounter() {
     }
   }, [unlocked, loadStats, loadSites, selectedSlug]);
 
-  /* ---------- Reload stats when site selection changes ---------- */
   useEffect(() => {
     if (unlocked) loadStats(selectedSlug);
   }, [unlocked, selectedSlug, loadStats]);
 
-  /* ---------- Handlers ---------- */
-
   const handleUnlock = () => setPinOpen(true);
-
   const handlePinSuccess = () => {
     setUnlocked(true);
     setPinOpen(false);
@@ -1277,18 +1417,26 @@ export function VisitorCounter() {
     }
   };
 
-  const handleAddSite = async (name: string, domain: string) => {
+  const handleAddSite = async (
+    name: string,
+    domain: string,
+    color: string | null
+  ) => {
     try {
       const res = await fetch("/api/sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain: domain || undefined }),
+        body: JSON.stringify({
+          name,
+          domain: domain || undefined,
+          color: color || undefined,
+        }),
       });
       const data = await res.json();
       if (!data?.ok) {
         toast({
           title: "Грешка",
-          description: "Сайтът не беше добавен. Опитай пак.",
+          description: "Сайтът не беше добавен.",
           variant: "destructive",
         });
         return;
@@ -1301,16 +1449,42 @@ export function VisitorCounter() {
     } catch {
       toast({
         title: "Грешка",
-        description: "Мрежова грешка. Опитай пак.",
+        description: "Мрежова грешка.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateSite = async (
+    site: Site,
+    patch: { name?: string; domain?: string | null; color?: string | null }
+  ) => {
+    try {
+      const res = await fetch(`/api/sites/${site.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (!data?.ok) throw new Error("update failed");
+      toast({ title: "Сайт обновен", description: site.name });
+      await loadSites();
+    } catch {
+      toast({
+        title: "Грешка",
+        description: "Сайтът не беше обновен.",
         variant: "destructive",
       });
     }
   };
 
   const handleDeleteSite = async (site: Site) => {
-    if (!window.confirm(
-      `Изтрий "${site.name}" и всичките му посещения?\nТова действие е необратимо.`
-    )) return;
+    if (
+      !window.confirm(
+        `Изтрий "${site.name}" и всичките му посещения?\nТова действие е необратимо.`
+      )
+    )
+      return;
     try {
       const res = await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("delete failed");
@@ -1327,9 +1501,12 @@ export function VisitorCounter() {
   };
 
   const handleRegenerateKey = async (site: Site) => {
-    if (!window.confirm(
-      `Смени API ключа на "${site.name}"?\nСтарият код ще спре да работи — трябва да замениш snippet-а в сайта си.`
-    )) return;
+    if (
+      !window.confirm(
+        `Смени API ключа на "${site.name}"?\nСтарият код ще спре да работи.`
+      )
+    )
+      return;
     try {
       const res = await fetch(`/api/sites/${site.id}/regenerate-key`, {
         method: "POST",
@@ -1340,9 +1517,6 @@ export function VisitorCounter() {
         title: "Ключ сменен",
         description: "Изтегли новия snippet от същия панел.",
       });
-      // Invalidate cached snippet for this site
-      // (the cached one is stale; will reload on next expand)
-      // We do this via a tiny hack: clear by forcing expand toggle off+on
       await loadSites();
     } catch {
       toast({
@@ -1394,8 +1568,10 @@ export function VisitorCounter() {
         open={siteManagerOpen}
         onClose={() => setSiteManagerOpen(false)}
         sites={sites}
+        palette={palette}
         loading={sitesLoading}
         onAdd={handleAddSite}
+        onUpdate={handleUpdateSite}
         onDelete={handleDeleteSite}
         onRegenerateKey={handleRegenerateKey}
       />

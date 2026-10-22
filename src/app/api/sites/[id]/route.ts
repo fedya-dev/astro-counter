@@ -11,13 +11,6 @@ function isAdmin(req: NextRequest): boolean {
   return isValidSession(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
-/**
- * /api/sites/[id]
- *
- * DELETE — deletes a site (cascades its visits).
- * PATCH — updates name/domain.
- * GET — returns the tracking snippet for this site.
- */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -38,6 +31,7 @@ export async function GET(
         slug: true,
         domain: true,
         apiKey: true,
+        color: true,
       },
     });
     if (!site) {
@@ -75,7 +69,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => null);
-    const data: { name?: string; domain?: string | null } = {};
+    const data: { name?: string; domain?: string | null; color?: string | null } = {};
     if (typeof body?.name === "string" && body.name.trim()) {
       const n = body.name.trim();
       if (n.length >= 2 && n.length <= 80) data.name = n;
@@ -83,17 +77,31 @@ export async function PATCH(
     if (typeof body?.domain === "string") {
       data.domain = body.domain.trim() || null;
     }
+    if (typeof body?.color === "string") {
+      if (/^#[0-9a-fA-F]{6}$/.test(body.color)) {
+        data.color = body.color;
+      } else if (body.color === "") {
+        data.color = null;
+      }
+    }
     const updated = await db.site.update({
       where: { id },
       data,
-      select: { id: true, name: true, slug: true, domain: true, apiKey: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        domain: true,
+        apiKey: true,
+        color: true,
+      },
     });
     return NextResponse.json({ ok: true, site: updated });
   } catch (err) {
     console.error("[/api/sites/[id] PATCH] error:", err);
     return NextResponse.json(
       { ok: false, error: "site_update_failed" },
-      { stats: 500, status: 500 }
+      { status: 500 }
     );
   }
 }

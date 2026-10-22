@@ -12,11 +12,6 @@ function isAdmin(req: NextRequest): boolean {
   return isValidSession(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
-/**
- * POST /api/sites/[id]/regenerate-key
- * Admin-only. Rotates the site's API key. Old key stops working immediately.
- * Returns the new key + updated snippet.
- */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -33,7 +28,14 @@ export async function POST(
     const site = await db.site.update({
       where: { id },
       data: { apiKey: newKey },
-      select: { id: true, name: true, slug: true, domain: true, apiKey: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        domain: true,
+        apiKey: true,
+        color: true,
+      },
     });
     const baseUrl = detectPublicOrigin(req);
     const snippet = buildTrackingSnippet({

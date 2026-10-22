@@ -1,5 +1,4 @@
-// Seeds the database with the first registered site (trainbrakes.com)
-// + generates a week of synthetic visit data for it.
+// Seeds the database with `trainbrakes.com` + 1 week of demo visits.
 // Run with: bun /home/z/my-project/scripts/seed-sites.ts
 
 import { db } from "../src/lib/db";
@@ -11,10 +10,10 @@ import {
   lastNDayKeys,
 } from "../src/lib/visitor-utils";
 
-async function ensureSite(name: string, domain: string, slugOverride?: string) {
+async function ensureSite(name: string, domain: string, color: string, slugOverride?: string) {
   let site = await db.site.findFirst({
     where: { domain },
-    select: { id: true, name: true, slug: true, apiKey: true, domain: true },
+    select: { id: true, name: true, slug: true, apiKey: true, domain: true, color: true },
   });
   if (!site) {
     let slug = slugOverride || generateSiteSlug();
@@ -28,10 +27,10 @@ async function ensureSite(name: string, domain: string, slugOverride?: string) {
     }
     const apiKey = generateApiKey();
     site = await db.site.create({
-      data: { name, slug, apiKey, domain },
-      select: { id: true, name: true, slug: true, apiKey: true, domain: true },
+      data: { name, slug, apiKey, domain, color },
+      select: { id: true, name: true, slug: true, apiKey: true, domain: true, color: true },
     });
-    console.log(`Created site: ${name} (${slug}) — ${domain}`);
+    console.log(`Created site: ${name} (${slug}) — ${domain} — ${color}`);
   } else {
     console.log(`Site already exists: ${site.name} (${site.slug})`);
   }
@@ -40,7 +39,6 @@ async function ensureSite(name: string, domain: string, slugOverride?: string) {
 
 async function seedVisits(siteId: string, days: string[]) {
   for (const date of days) {
-    // ~12-30 visitors per day per site (deterministic)
     const base = 12 + ((date.charCodeAt(date.length - 1) * 7) % 18);
     for (let i = 0; i < base; i++) {
       const visitorHash = `seed_${siteId.slice(0, 6)}_${date}_${i}`;
@@ -49,7 +47,6 @@ async function seedVisits(siteId: string, days: string[]) {
         select: { id: true },
       });
       if (existing) continue;
-      // Some referrers to make the dashboard look interesting
       const referrers = [
         "https://www.google.com/search",
         "https://www.facebook.com/",
@@ -73,16 +70,14 @@ async function seedVisits(siteId: string, days: string[]) {
 }
 
 async function main() {
-  const trainBrakes = await ensureSite("Train Brakes", "trainbrakes.com", "trainbrakes");
-  // Reserve a placeholder slug for the next two sites the user will add later
-  // (we don't auto-register them — the user will add them via the UI)
+  const trainBrakes = await ensureSite("Train Brakes", "trainbrakes.com", "#a855f7", "trainbrakes");
+  const blog = await ensureSite("Test Blog", "example.com", "#22d3ee");
 
   const days = lastNDayKeys(7);
   await seedVisits(trainBrakes.id, days);
+  await seedVisits(blog.id, days);
 
-  // Print snippets + summary
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
   const snippet = buildTrackingSnippet({
     baseUrl,
     slug: trainBrakes.slug,

@@ -7,17 +7,21 @@ import {
   isValidSession,
   buildTrackingSnippet,
   detectPublicOrigin,
+  pickPaletteColor,
+  SITE_COLOR_PALETTE,
 } from "@/lib/visitor-utils";
 
-/** Helper: returns true if the request has a valid admin session cookie. */
 function isAdmin(req: NextRequest): boolean {
   return isValidSession(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
-/**
- * GET /api/sites
- * Admin-only. Lists all registered sites with their stats summary.
- */
+function todayDateStr(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAdmin(req)) {
     return NextResponse.json(
@@ -34,21 +38,17 @@ export async function GET(req: NextRequest) {
         slug: true,
         domain: true,
         apiKey: true,
+        color: true,
         createdAt: true,
         _count: { select: { visits: true } },
       },
     });
 
-    // For each site, also compute today's + yesterday's count
     const todayStr = new Date();
-    const todayDate = `${todayStr.getFullYear()}-${String(
-      todayStr.getMonth() + 1
-    ).padStart(2, "0")}-${String(todayStr.getDate()).padStart(2, "0")}`;
+    const todayDate = todayDateStr(todayStr);
     const y = new Date();
     y.setDate(y.getDate() - 1);
-    const yesterdayDate = `${y.getFullYear()}-${String(
-      y.getMonth() + 1
-    ).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`;
+    const yesterdayDate = todayDateStr(y);
 
     const enriched = await Promise.all(
       sites.map(async (s) => {
@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
           slug: s.slug,
           domain: s.domain,
           apiKey: s.apiKey,
+          color: s.color,
           createdAt: s.createdAt,
           totalVisits: s._count.visits,
           today,
@@ -72,7 +73,11 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    return NextResponse.json({ ok: true, sites: enriched });
+    return NextResponse.json({
+      ok: true,
+      sites: enriched,
+      palette: SITE_COLOR_PALETTE,
+    });
   } catch (err) {
     console.error("[/api/sites GET] error:", err);
     return NextResponse.json(
@@ -82,11 +87,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/sites
- * Admin-only. Creates a new site.
- * Body: { name: string, domain?: string }
- */
 export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
     return NextResponse.json(
@@ -101,6 +101,10 @@ export async function POST(req: NextRequest) {
       typeof body?.domain === "string" && body.domain.trim()
         ? body.domain.trim()
         : null;
+    const color =
+      typeof body?.color === "string" && /^#[0-9a-fA-F]{6}$/.test(body.color)
+        ? body.color
+        : null;
 
     if (!name || name.length < 2 || name.length > 80) {
       return NextResponse.json(
@@ -109,7 +113,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate a unique slug. Retry on collision (extremely unlikely).
     let slug = generateSiteSlug();
     for (let attempt = 0; attempt < 5; attempt++) {
       const exists = await db.site.findUnique({
@@ -121,15 +124,17 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = generateApiKey();
+    const finalColor = color || pickPaletteColor(`${slug}-${name}`);
 
     const site = await db.site.create({
-      data: { name, slug, apiKey, domain },
+      data: { name, slug, apiKey, domain, color: finalColor },
       select: {
         id: true,
         name: true,
         slug: true,
         domain: true,
         apiKey: true,
+        color: true,
         createdAt: true,
       },
     });

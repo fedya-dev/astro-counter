@@ -7,11 +7,12 @@
 ### Заключен екран (публичен изглед)
 ![Locked screen](docs/locked-screen.png)
 
-### Dashboard с множество сайтове
+### Dashboard с оцветени табове за всеки сайт
 ![Dashboard](docs/dashboard.png)
 
-### Статистика за конкретен сайт
-![Site stats](docs/site-stats.png)
+### Site manager — регистрирай сайтове, избери цвят, копирай snippet
+![Site manager](docs/site-manager.png)
+
 
 ---
 
@@ -19,12 +20,13 @@
 
 - 🔒 **PIN-защитен dashboard** — само ти виждаш статистиките (HttpOnly cookie + 7-дневна сесия)
 - 🌐 **Множество сайтове** — регистрирай неограничен брой сайтове, за всеки отделна статистика
-- 📊 **Богата статистика** — Днес, Вчера, Седмица, Общо + 7-дневна area-chart + топ държави + топ реферали
+- 🎨 **Цветове за всеки сайт** — 12-цветна палитра + custom цветове, за да различаваш табовете лесно
+- 📊 **Богата статистика** — Днес, Вчера, Седмица, Общо + 7-дневна area-chart + топ 10 държави + топ 10 реферали
 - 🎯 **Уникални посетители/ден** — дедупликирани по IP + User-Agent + Country хеш
 - 📋 **Copy-paste snippet** — за всеки сайт се генерира JS snippet с `mode: "no-cors"`, работи на всяка платформа
 - 🔄 **Ротиране на API ключове** — ако ключ утече, с един клик го смениш
-- 📈 **Trend проценти** — автоматично смята ръст/спад спрямо вчера
-- 🌌 **Космическа тема** — лилаво-черно background с мигащи звезди
+- 📈 **Умни trend labels** — "✨ Първи посещения", "≈ Също като вчера", "▼ N% спря вчера (беше X)" — без объркващи проценти
+- 🌌 **Космическа тема** — лилаво-черно background с мигащи звезди + лилава звезда favicon
 - 🐳 **Docker-ready** — multi-stage build, non-root user, persistent volume
 
 ---
@@ -64,27 +66,17 @@ ADMIN_PIN: "1234"      # ← смени това
 ADMIN_PIN: "твоя-таен-PIN-тук"
 ```
 
-Запаметете (Ctrl+O, Enter) и излезте (Ctrl+X).
-
 ### Стъпка 3 — Билдни и пусни
 
 ```bash
 docker compose up -d --build
 ```
 
-Първоначалният билд отнема 1-2 минути.
-
 ### Стъпка 4 — Провери че тръгна
 
 ```bash
 docker compose logs -f astro
-# Ctrl+C за изход от лога (контейнерът продължава да работи)
-```
-
-Трябва да видиш:
-```
-[entrypoint] Applying Prisma schema to database...
-✓ Ready in 87ms
+# Ctrl+C за изход от лога
 ```
 
 ### Стъпка 5 — Отвори в браузъра
@@ -94,45 +86,37 @@ http://ТВОЯ-СЪРВЪР-IP:3000
 ```
 
 - Кликни **"Отключи детайлите"**
-- Въведи PIN-а (този който си сложил в стъпка 2)
-- Виждаш dashboard-а с празни статистики
+- Въведи PIN-а
+- Виждаш dashboard-а
 
-### Стъпка 6 — Провери версията (за debug)
+### Стъпка 6 — Провери версията
 
 ```bash
 curl http://ТВОЯ-СЪРВЪР-IP:3000/api/version
-# Трябва да върне: {"ok":true,"version":"v1.0.6",...}
-```
-
-Ако не виждаш `v1.0.6` — ребилдни без кеш:
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up -d
+# Трябва да върне: {"ok":true,"version":"v1.0.8",...}
 ```
 
 ---
 
 ## ⚙️ Конфигурация (environment variables)
 
-В `docker-compose.yml` под `environment:`:
-
 | Променлива | Задължителна | Default | Описание |
 |-----------|--------------|---------|----------|
-| `ADMIN_PIN` | **ДА** ✓ | `1234` | PIN за отключване на dashboard-а. **Смени го!** |
-| `DATABASE_URL` | Не | `file:/app/data/custom.db` | Път до SQLite файла (volume mount) |
-| `TZ` | Не | `Europe/Sofia` | Timezone за дневни граници (днес/вчера) |
-| `NEXT_PUBLIC_BASE_URL` | Не | (auto-detected) | Публичен URL за snippet-а. Ако е празно, се детектира от request headers (работи зад reverse proxy) |
+| `ADMIN_PIN` | **ДА** ✓ | `1234` | PIN за отключване. **Смени го!** |
+| `DATABASE_URL` | Не | `file:/app/data/custom.db` | Път до SQLite файла |
+| `TZ` | Не | `Europe/Sofia` | Timezone за дневни граници |
+| `NEXT_PUBLIC_BASE_URL` | Не | (auto-detected) | Публичен URL за snippet-а |
 
 ---
 
 ## 🌐 Добавяне на сайт
 
-1. Отвори `http://твоя-сървър:3000` → отключи с PIN
-2. Кликни **"Управление на сайтове"** (горе-дясно)
+1. Отвори dashboard-а → отключи с PIN
+2. Кликни **"Сайтове"** (горе-дясно)
 3. Във формата:
    - **Име на сайта** (напр. "Train Brakes")
    - **Домейн** (напр. "trainbrakes.com")
+   - **Цвят** — кликни върху кръгче от палитрата (или ползвай custom цвете с "+" бутона)
 4. Клик **"Добави сайт"**
 5. В списъка със сайтове кликни **"Код"** до него
 6. Кликни **"Копирай"** — snippet-ът е в клипборда
@@ -142,7 +126,7 @@ docker compose up -d
 
 | Платформа | Къде да сложиш snippet-а |
 |-----------|--------------------------|
-| **Astro** | `src/layouts/Layout.astro` преди `</body>` — **ползвай `<script is:inline>`**, иначе Astro ще минифицира/промени кода и ще счупи tracking-а |
+| **Astro** | `src/layouts/Layout.astro` преди `</body>` — **ползвай `<script is:inline>`** (виж долу) |
 | **WordPress** | Appearance → Theme Editor → `footer.php` преди `</body>` (или плъгин "Insert Headers and Footers") |
 | **Чист HTML** | Във всеки `.html` файл, преди `</body>` |
 | **Next.js** | В root layout `app/layout.tsx` или `pages/_app.tsx` |
@@ -178,9 +162,81 @@ Astro по подразбиране processing-ва `<script>` таговете 
 
 ---
 
-## 🔐 Безопасност
+## 🔄 Миграция от GoatCounter
 
-### Как работи
+Ако вече ползваш GoatCounter и искаш да го замениш с Астро:
+
+### Стъпка 1 — Намери стария GoatCounter код
+
+GoatCounter snippet-ът обикновено изглежда така:
+
+```html
+<script data-goatcounter="https://твоето-име.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+```
+
+...или сnoscript:
+
+```html
+<noscript>
+  <img src="https://твоето-име.goatcounter.com/count?...">
+</noscript>
+```
+
+**Как да го намериш:**
+
+| Платформа | Как да намериш |
+|-----------|---------------|
+| **Astro** | `grep -ri "goatcounter\|zgo.at" src/ public/` в проектната директория |
+| **WordPress** | Appearance → Theme Editor → търси в `header.php`, `footer.php` или плъгини като "Insert Headers and Footers" |
+| **Чист HTML** | `grep -ri "goatcounter\|zgo.at" .` в директорията на сайта |
+| **Browser DevTools** | Отвори сайта → Ctrl+U (View Source) → Ctrl+F → "goatcounter" или "zgo.at" |
+
+### Стъпка 2 — Изтрий стария код
+
+1. Отвори файла където е GoatCounter snippet-ът
+2. Изтрий целия `<script data-goatcounter=...>` таг
+3. Изтрий и `<noscript>` таг ако го има
+4. Изтрий всякакви `window.goatcounter = {...}` config блокове
+5. Запамети файла
+
+### Стъпка 3 — Постави новия Астро snippet
+
+Следвай стъпките от секция "🌐 Добавяне на сайт" по-горе.
+
+### Стъпка 4 — Деплой и тествай
+
+1. Деплой сайта (git push, FTP, и т.н.)
+2. Отвори сайта в браузъра
+3. Изчакай 2 секунди (snippet-ът праща POST при зареждане)
+4. Върни се в dashboard-а → избери сайта → клик **"Обнови"**
+5. "Днес" трябва да се е увеличил с 1
+
+### Опционално — Запази старите данни
+
+Ако искаш да запазиш историческите данни от GoatCounter:
+- Експортвай от goatcounter.com dashboard (Settings → Data export → CSV)
+- Запази CSV-то за reference (Астро не импортира чужди данни засега)
+
+---
+
+## 🎨 Цветове на сайтовете
+
+Всеки сайт получава автоматично цвят от палитра (12 цвята). Можеш да го сменяш:
+
+1. Отвори dashboard-а → **"Сайтове"**
+2. До всеки сайт има кръгче с неговия цвят — кликни го
+3. Избери нов цвят от палитрата (или ползвай custom цвете с "+" бутона)
+4. Цвят се запазва автоматично (PATCH заявка)
+
+Цветовете се показват:
+- Като малко цветно кръгче в таба на сайта в site selector-а
+- Като accent за chart-а в dashboard-а (графиката взема цвета на избрания сайт)
+- Като лява цветна лента в Site Manager списъка
+
+---
+
+## 🔐 Безопасност
 
 - **API ключът** в snippet-а (`k=sk_...`) е "видим" в source code-а на сайта ти — това е **по дизайн**. Най-лошото, което някой може да направи с него, е да "напълни" статистиките ти с фалшиви посещения.
 - **Не може да чете данните ти** — статистиките са зад PIN cookie.
@@ -190,16 +246,13 @@ Astro по подразбиране processing-ва `<script>` таговете 
 
 1. **Смени PIN-а** от `1234` на нещо лично (поне 6 цифри)
 2. **Сложи dashboard-а зад HTTPS** — виж по-долу
-3. **Прави backup** на SQLite файла:
-   ```bash
-   docker compose exec astro cp /app/data/custom.db /backups/custom-$(date +%Y%m%d).db
-   ```
+3. **Прави backup** на SQLite файла (виж долу)
 
 ---
 
 ## 🌍 HTTPS / Reverse Proxy (ПРОДУКЦИЯ)
 
-**Важно!** Ако сайтът ти е на HTTPS (напр. `https://trainbrakes.com`), а dashboard-ът е на HTTP — браузърите ще блокират POST заявките (mixed content). Затова сложи dashboard-а зад HTTPS.
+**Важно!** Ако сайтът ти е на HTTPS, а dashboard-ът е на HTTP — браузърите ще блокират POST заявките (mixed content). Затова сложи dashboard-а зад HTTPS.
 
 ### Опция A: Cloudflare Tunnel (НАЙ-ЛЕСНО + БЕЗПЛАТНО)
 
@@ -209,7 +262,7 @@ Astro по подразбиране processing-ва `<script>` таговете 
 2. Subdomain: `astro`, Domain: `твоя-домейн.com`
 3. Service: `http://localhost:3000` (или `http://сървър-LAN-IP:3000`)
 4. **Path полето ОСТАВИ ПРАЗНО** (важно!)
-5. Service URL: без trailing slash накрая (напр. `http://10.0.0.5:3000`, не `http://10.0.0.5:3000/`)
+5. Service URL: без trailing slash накрая
 6. Клик **"Add route"** — DNS-ът и сертификатът се създават автоматично
 
 ### Опция B: Caddy (Let's Encrypt автоматично)
@@ -222,13 +275,9 @@ echo 'astro.твоя-домейн.com {
 systemctl restart caddy
 ```
 
-### Опция C: Nginx + certbot
-
-Класическият начин. Конфигурирай Nginx като reverse proxy + пусни `certbot --nginx`.
-
 ### След като сложиш dashboard-а на HTTPS
 
-Влез в dashboard-а → **"Управление на сайтове"** → за всеки сайт кликни **"Код"** → копирай **новия** snippet (URL-ът ще е вече `https://...`) → заместваш в сайтовете си.
+Влез в dashboard-а → **"Сайтове"** → за всеки сайт кликни **"Код"** → копирай **новия** snippet (URL-ът ще е вече `https://...`) → заместваш в сайтовете си.
 
 ---
 
@@ -238,12 +287,8 @@ systemctl restart caddy
 
 **Причина 1:** Cookie-то има `Secure` флаг, но достъпваш през HTTP.
 
-**Диагностика:**
 ```bash
-# 1. Провери версията (трябва да е v1.0.6+)
-curl http://твоя-сървър:3000/api/version
-
-# 2. Тествай cookie-то с curl
+# Диагностика с curl
 curl -v -X POST http://твоя-сървър:3000/api/auth \
   -H "Content-Type: application/json" \
   -d '{"pin":"ТВОЯ-PIN"}' \
@@ -257,34 +302,9 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-**Причина 2:** Влизаш с грешен PIN. Провери какъв е реалният PIN в контейнера:
+**Причина 2:** Влизаш с грешен PIN. Провери какъв е реалният PIN:
 ```bash
 docker compose exec astro printenv ADMIN_PIN
-```
-
-### "Влизам с верен PIN, но връща 401"
-
-PIN-ът в `docker-compose.yml` не съвпада с този, който въвеждаш.
-
-```bash
-# Виж какъв е реалният PIN в контейнера
-docker compose exec astro printenv ADMIN_PIN
-```
-
-### "Site selector не показва данни за сайт"
-
-1. Увери се, че си кликнал бутона на сайта (highlight-нат в лилаво)
-2. Клик **"Обнови"** (горе-дясно)
-3. Ако snippet-ът не е инсталиран на сайта — нямаш посещения още
-
-### "Нова версия на кода не се обновява"
-
-Docker е кеширал стар image.
-
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up -d
 ```
 
 ### "Cloudflare Tunnel: Bad Configuration: invalid address"
@@ -301,11 +321,26 @@ docker compose up -d
 
 **Решение:** Добави A запис (или CNAME ако ползваш Cloudflare Tunnel).
 
+### "Site selector не показва данни за сайт"
+
+1. Увери се, че си кликнал бутона на сайта (highlight-нат с неговия цвят)
+2. Клик **"Обнови"** (горе-дясно)
+3. Ако snippet-ът не е инсталиран на сайта — нямаш посещения още
+
+### "Нова версия на кода не се обновява"
+
+Docker е кеширал стар image:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
 ---
 
 ## 💾 Backup & Restore
 
-### Backup на SQLite DB
+### Backup
 
 ```bash
 # Еднократно
@@ -328,9 +363,7 @@ docker compose up -d
 
 ## 🔄 Обновяване на кода
 
-Имаш два варианта зависимо как е инсталирано на сървъра.
-
-### Вариант A — Бърз ъпдейт (ако вече имаш `git clone` на сървъра)
+### Вариант A — Бърз ъпдейт (ако имаш `git clone` на сървъра)
 
 ```bash
 cd astro-counter
@@ -346,15 +379,13 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-### Вариант B — Чист ресет (ако имаш стар архив-based install и искаш да минеш на GitHub)
-
-За напълно прясно начало — изтрий старата инсталация и клонирай repo-то от GitHub. **Данните остават!** — те са в Docker volume, не в папката.
+### Вариант B — Чист ресет (ако имаш стар архив-based install)
 
 ```bash
 # 1. Влез на сървъра
 ssh root@10.110.110.51
 
-# 2. Отиди в старата папка (където ти е стария архив)
+# 2. Отиди в старата папка
 cd /root/dockeri
 ls astro-counter   # старата инсталация
 
@@ -368,13 +399,10 @@ rm -rf astro-counter
 
 # 5. Клонирай новото repo от GitHub
 git clone https://github.com/fedya-dev/astro-counter.git
-# (или с SSH: git clone git@github.com:fedya-dev/astro-counter.git)
 cd astro-counter
 
-# 6. Смени PIN-а! (ако не е вече сменен в GitHub — но НЕ го казвай в публично repo!)
-# Ако си оставил ADMIN_PIN: "1234" в git, смени го локално тук:
+# 6. Смени PIN-а!
 nano docker-compose.yml
-# (В бъдеще ползвай .env файл или git-ignored override)
 
 # 7. Билдни и пусни
 docker compose up -d --build
@@ -389,76 +417,57 @@ curl http://10.110.110.51:3000/api/version
 ### Верификация след ъпдейта
 
 ```bash
-# 1. Версията е най-новата (провери с curl)
+# 1. Версията е най-новата
 curl http://твоя-сървър:3000/api/version
 
 # 2. Браузър hard refresh (за да зареди новия JS bundle):
 #    Ctrl + Shift + R   (или Cmd + Shift + R на Mac)
-#    Или отвори в Incognito/Private таб
 
 # 3. В dashboard-а виж дали новите features са активни:
-#    - Иконката в tab-а трябва да е лилава звезда (не Z.ai лого)
+#    - Иконката в tab-а трябва да е лилава звезда
 #    - Горе-дясно в dashboard-а има GitHub иконка
-#    - Trend label-а казва "▼ N% спря вчера (беше X)" с предишното число
+#    - Site selector-а има цветни кръгчета за всеки сайт
+#    - Trend label-а казва "▼ N% спря вчера (беше X)"
 ```
 
 ---
 
 ## 🏗️ Технологии
 
-- **Frontend:** Next.js 16 (App Router, standalone build), TypeScript, Tailwind CSS 4, shadcn/ui, Recharts, Framer Motion
+- **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, Recharts, Framer Motion
 - **Backend:** Next.js Route Handlers (API routes)
-- **Database:** Prisma ORM + SQLite (file-based, persistent volume)
+- **Database:** Prisma ORM + SQLite
 - **Auth:** PIN + HttpOnly session cookie (7 дни)
-- **Tracking:** FNV-1a хеш за дедупликиране, CORS-open `/api/track` endpoint
+- **Tracking:** FNV-1a хеш, CORS-open `/api/track` endpoint
 
 ---
 
-## 📁 Структура на проекта
+## 📁 Структура
 
 ```
 astro-counter/
-├── prisma/
-│   └── schema.prisma          # Site + Visit модели
+├── prisma/schema.prisma       # Site (с color) + Visit модели
 ├── src/
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── auth/           # POST /api/auth (PIN login)
-│   │   │   ├── track/          # POST/GET /api/track?site=X&k=Y (CORS-open)
-│   │   │   ├── stats/          # GET /api/stats?site=X (admin-only)
-│   │   │   ├── sites/          # GET/POST /api/sites + /api/sites/[id] + regenerate-key
-│   │   │   ├── logout/         # POST /api/logout
-│   │   │   ├── version/        # GET /api/version (за диагностика)
-│   │   │   └── debug/auth-info # GET /api/debug/auth-info (за debug)
-│   │   ├── layout.tsx          # Root layout (бг metadata)
-│   │   ├── page.tsx            # Главна страница (рендира VisitorCounter)
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── visitor-counter.tsx # Главен клиентски компонент (locked/dashboard/site manager)
-│   │   └── ui/                 # shadcn/ui компоненти
-│   └── lib/
-│       ├── db.ts               # Prisma client singleton (с invalidate при schema промяна)
-│       ├── visitor-utils.ts    # getVisitorHash, isHttpsRequest, buildTrackingSnippet, etc.
-│       └── version.ts          # APP_VERSION
-├── docs/                      # Скрийншоти за README
-├── Dockerfile                 # Multi-stage build (deps → build → runtime)
-├── docker-compose.yml         # One-command deploy
-├── docker-entrypoint.sh       # Auto prisma db push + node server.js
-├── .dockerignore
-└── .env.docker.example        # Документация на env vars
+│   │   ├── api/{auth,track,logout,stats,sites,version,debug}/
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components/visitor-counter.tsx
+│   ├── lib/{db,visitor-utils,version}.ts
+│   └── components/ui/         # shadcn/ui
+├── docs/                      # Скрийншоти
+├── Dockerfile + docker-compose.yml + docker-entrypoint.sh
+└── README.md
 ```
 
 ---
 
-## 🗺️ Roadmap / Идеи за бъдеще
+## 🗺️ Roadmap
 
 - [ ] CSV експорт на посещения
 - [ ] Email репорт дневно
-- [ ] Webhook при броене на milestone (100, 1000, etc.)
-- [ ] Multi-user поддръжка (различни PIN-ове за различни sites)
+- [ ] Geo-IP с градове
 - [ ] Real-time websocket обновяване
-- [ ] Customizable dashboards per site
-- [ ] Geo-IP с градове (не само държави)
 
 ---
 
@@ -468,13 +477,4 @@ astro-counter/
 
 ---
 
-## 🆘 Проблеми?
-
-Провери:
-1. `docker compose logs astro` — гледай лога
-2. `curl http://твоя-сървър:3000/api/version` — потвърди версията
-3. `curl http://твоя-сървър:3000/api/debug/auth-info` — виж HTTPS детекцията
-
----
-
-**Версия:** v1.0.7 · Изграден на 2026-10-22
+**Версия:** v1.0.8 · Изграден на 2026-10-22

@@ -9,22 +9,6 @@ import {
   isValidSession,
 } from "@/lib/visitor-utils";
 
-/**
- * GET /api/stats?site=<slug>
- * Requires a valid session cookie (i.e. the user has entered the correct PIN).
- *
- * If `site` query param is provided, returns stats for that specific site.
- * Otherwise, returns aggregated stats across the dashboard's own `/` page
- * (legacy visits with siteId=null).
- *
- * Returns the private dashboard breakdown:
- *   - today's count
- *   - yesterday's count
- *   - total unique visitors
- *   - last 7 days series (date label + count)
- *   - top countries (last 7 days)
- *   - top referrers (last 7 days) — new for external sites
- */
 export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -38,13 +22,13 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const siteSlug = url.searchParams.get("site");
 
-    // Determine the site filter
     let siteId: string | null = null;
     let siteName: string | null = null;
+    let siteColor: string | null = null;
     if (siteSlug) {
       const site = await db.site.findUnique({
         where: { slug: siteSlug },
-        select: { id: true, name: true },
+        select: { id: true, name: true, color: true },
       });
       if (!site) {
         return NextResponse.json(
@@ -54,13 +38,13 @@ export async function GET(req: NextRequest) {
       }
       siteId = site.id;
       siteName = site.name;
+      siteColor = site.color;
     }
 
     const today = todayKey();
     const yesterday = yesterdayKey();
     const last7 = lastNDayKeys(7);
 
-    // The Prisma `where` filter — null siteId means "dashboard self-visits"
     const where = siteId ? { siteId } : { siteId: null };
 
     const [
@@ -137,6 +121,7 @@ export async function GET(req: NextRequest) {
       stats: {
         site: siteName,
         siteSlug: siteSlug || null,
+        siteColor: siteColor,
         today: todayCountNum,
         yesterday: yesterdayCountNum,
         total: totalUniqueRows.length,

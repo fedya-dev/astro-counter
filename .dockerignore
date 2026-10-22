@@ -1,26 +1,17 @@
-# Build artifacts
 .next
 .next/standalone
 dev.log
 server.log
 .zscripts
 tests
-
-# Dependencies (re-installed inside the container)
 node_modules
-
-# Database & runtime data (mounted as volume, not baked in)
 db
 *.db
 *.db-journal
-
-# Local env
 .env
 .env.local
 .env.*.local
 .env.docker.local
-
-# Editor / OS noise
 .git
 .gitignore
 .github
@@ -29,14 +20,10 @@ db
 .DS_Store
 *.swp
 *.swo
-
-# Documentation
 README.md
 worklog.md
 download
 scripts
-
-# Docker itself
 Dockerfile
 .dockerignore
 docker-compose.yml

@@ -1,33 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  getVisitorHash,
-  todayKey,
-  yesterdayKey,
-} from "@/lib/visitor-utils";
-
-/**
- * Cross-origin tracking endpoint.
- *
- * External sites embed a snippet that POSTs to:
- *   POST /api/track?site=<slug>&k=<apiKey>
- * Body (optional): { referrer?: string, page?: string }
- *
- * Security model:
- *   - The slug is public (visible in the snippet URL).
- *   - The apiKey (k=...) is also embedded in the snippet URL — yes, this means
- *     anyone viewing the site's source can extract it. That's by design: the
- *     worst they can do is record fake visits to YOUR stats, which doesn't
- *     compromise the private dashboard (still gated by the PIN).
- *   - The dashboard itself is protected by the PIN cookie.
- *
- * This endpoint is fully CORS-open (any origin allowed) because it must be
- * callable from external websites.
- *
- * Also serves the legacy self-tracking use case when neither site nor k are
- * provided (the dashboard's own `/` page calls this with no site — registered
- * as the implicit "Self" site).
- */
+import { getVisitorHash, todayKey } from "@/lib/visitor-utils";
 
 function corsHeaders() {
   return {
@@ -50,7 +23,6 @@ export async function POST(req: NextRequest) {
 
     let site: { id: string; slug: string; apiKey: string } | null = null;
 
-    // If a site slug is provided, look it up + verify the API key.
     if (siteSlug) {
       const found = await db.site.findUnique({
         where: { slug: siteSlug },
@@ -71,8 +43,6 @@ export async function POST(req: NextRequest) {
       site = { id: found.id, slug: found.slug, apiKey: found.apiKey };
     }
 
-    // Visitor hash is now per-(visitor, site) so the same person visiting
-    // multiple tracked sites still counts as 1 unique per site per day.
     const visitorHash = getVisitorHash(req);
     const date = todayKey();
 
@@ -80,7 +50,6 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       if (body && typeof body.referrer === "string" && body.referrer) {
-        // Sanitize: strip query/fragment, keep origin+pathname, truncate.
         try {
           const u = new URL(body.referrer);
           referrer = `${u.origin}${u.pathname}`.slice(0, 200);
@@ -89,12 +58,11 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch {
-      // body was empty / not JSON — that's fine, snippet always sends JSON
+      // body empty
     }
 
     const siteId = site?.id ?? null;
 
-    // Deduplicate: same (visitor, site, date) = one row.
     const existing = await db.visit.findFirst({
       where: siteId
         ? { visitorHash, date, siteId }
@@ -126,7 +94,6 @@ export async function POST(req: NextRequest) {
       visitId = created.id;
     }
 
-    // Public-safe counts (only for the requested site).
     const where = siteId ? { siteId } : { siteId: null };
     const todayCount = await db.visit.count({ where: { ...where, date } });
     const totalUnique = await db.visit.groupBy({
@@ -140,9 +107,6 @@ export async function POST(req: NextRequest) {
         ok: true,
         visitId,
         site: site?.slug ?? null,
-        // Note: for external sites, we return today's count + total — but the
-        // snippet doesn't actually USE this response (it's fire-and-forget
-        // with `mode: "no-cors"`). It's only useful for debugging.
         today: todayCount,
         total: totalUnique.length,
       },
@@ -157,7 +121,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** GET /api/track — public-safe count for today + total unique (optionally filtered by site). */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -186,6 +149,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-
-// Re-export for type-checking only
-export const _yesterdayKey = yesterdayKey;
